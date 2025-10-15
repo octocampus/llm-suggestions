@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./test.db
+      - EXTERNAL_API_BASE_URL=http://host.docker.internal:8085/api/profiling
+      - LOG_LEVEL=INFO
+    volumes:
+      - .:/app
+      - ./test.db:/app/test.db
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
