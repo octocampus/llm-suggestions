@@ -35,8 +35,44 @@ class Settings(BaseSettings):
     trino_host: Optional[str] = Field(default="localhost", description="Trino host")
     trino_port: Optional[int] = Field(default=8080, description="Trino port")
     trino_user: Optional[str] = Field(default="trino", description="Trino user")
-    trino_catalog: Optional[str] = Field(default="hive", description="Default Trino catalog")
-    trino_schema: Optional[str] = Field(default="default", description="Default Trino schema")
+    trino_password: Optional[str] = Field(
+        default=None, description="Trino password (if using BasicAuth)"
+    )
+    trino_catalog: Optional[str] = Field(
+        default="hive", description="Default Trino catalog"
+    )
+    trino_schema: Optional[str] = Field(
+        default="default", description="Default Trino schema"
+    )
+    trino_http_scheme: str = Field(
+        default="http", description="HTTP scheme (http or https)"
+    )
+    trino_auth_type: Optional[str] = Field(
+        default=None, description="Auth type: basic, jwt, oauth2, kerberos, or None"
+    )
+
+    # Keycloak settings for Trino OAuth2
+    keycloak_server_url: Optional[str] = Field(
+        default=None, description="Keycloak server URL"
+    )
+    keycloak_realm: Optional[str] = Field(default=None, description="Keycloak realm")
+    keycloak_trino_client_id: Optional[str] = Field(
+        default=None, description="Trino client ID"
+    )
+    keycloak_trino_client_secret: Optional[str] = Field(
+        default=None, description="Trino client secret"
+    )
+
+    # LLM Settings
+    llm_provider: str = Field(
+        default="groq", description="LLM provider: groq, openai, anthropic, ollama"
+    )
+    llm_model: str = Field(default="openai/gpt-oss-120b", description="LLM model name")
+    groq_api_key: Optional[str] = Field(default=None, description="Groq API key (free)")
+    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
+    anthropic_api_key: Optional[str] = Field(
+        default=None, description="Anthropic API key"
+    )
 
     # Accept extra env vars (ignore keys we don't explicitly model)
     model_config = SettingsConfigDict(
@@ -53,6 +89,16 @@ if not settings.external_api_base_url:
     settings.external_api_base_url = (
         f"{settings.bff_base_url.rstrip('/')}/api/profiling"
     )
+
+# Auto-enable oauth2 if Keycloak is configured
+if (
+    settings.keycloak_server_url
+    and settings.keycloak_realm
+    and settings.keycloak_trino_client_id
+    and settings.keycloak_trino_client_secret
+    and not settings.trino_auth_type
+):
+    settings.trino_auth_type = "oauth2"
 
 
 def get_postgres_config():
@@ -72,6 +118,9 @@ def get_trino_config():
         "host": settings.trino_host or "localhost",
         "port": settings.trino_port or 8080,
         "user": settings.trino_user or "trino",
-        "catalog": settings.trino_catalog or "hive",
-        "schema": settings.trino_schema or "default",
+        "password": settings.trino_password,
+        "catalog": settings.trino_catalog or "system",
+        "schema": settings.trino_schema or "jdbc",
+        "http_scheme": settings.trino_http_scheme or "http",
+        "auth_type": settings.trino_auth_type,
     }
